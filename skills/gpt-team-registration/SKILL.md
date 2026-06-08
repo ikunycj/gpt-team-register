@@ -1,0 +1,146 @@
+---
+name: gpt-team-registration
+description: Register ChatGPT Team/Business sub-accounts through the hegiw77632.cloud-ip.cc email pattern and codex SAML SSO. Use when the user asks to register another Team child account, retry a gpt-team registration, or create an account like ikun0000001 under the Team SSO flow.
+---
+
+# GPT Team Registration
+
+Use this skill to help register ChatGPT Team/Business sub-accounts from `/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register`.
+
+## Fast Path Script
+
+Prefer the bundled script for repeat registrations:
+
+```bash
+cd /Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
+./register-team-account ikun0000002
+```
+
+The script automates:
+
+- Opening ChatGPT.
+- Logging out an existing ChatGPT account if necessary.
+- Entering the derived email.
+- Choosing `codex` SSO.
+- Filling the SAML form.
+- Submitting `Sign In` automatically.
+- Retrying fresh SAML requests after `invalid SAML request`.
+- Selecting the default job role `工程`.
+- Dismissing optional onboarding prompts.
+
+The script uses a persistent browser profile at:
+
+```text
+/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/.browser-profile
+```
+
+If Cloudflare/browser verification appears, complete the visible verification manually in the opened browser, then press Enter in the terminal. The profile should remember that verification for later runs. Use `--no-persistent` only when intentionally testing a clean browser.
+
+The script submits `Sign In` automatically by default for faster repeat registration. Pass `--confirm` only when you intentionally want a manual confirmation gate before submission.
+
+Use `--role <name>` to choose a different onboarding role. Use `--close` to close the script browser at the end.
+
+## Inputs
+
+- Account id: for example `ikun0000001`.
+- Email: derive as `<account-id>+@hegiw77632.cloud-ip.cc`.
+- SSO User ID: exactly `<account-id>`.
+
+If the user only provides an id, derive the email. If the user provides both, prefer the explicit values and mention them before submitting.
+
+## Safety Boundaries
+
+- Use the in-app Browser skill for ChatGPT and SSO pages.
+- Do not bypass Cloudflare, CAPTCHA, browser safety interstitials, or paywalls. Ask the user to complete those manually if they appear.
+- The default automation path submits the SSO `Sign In` button automatically.
+- Pass `--confirm` when you want the script to stop and require an exact confirmation string before submission.
+- Selecting onboarding preferences such as job role can be done automatically when the requested role is already known.
+
+## Browser Workflow
+
+1. Open `https://chatgpt.com/auth/login`.
+
+   If ChatGPT redirects to an already logged-in workspace, log out first:
+
+   - Open the profile menu.
+   - Choose `退出登录`.
+   - Confirm the logout dialog.
+   - If an account chooser appears, choose `创建帐户` or `登录至另一个帐户` to reach the email form.
+
+2. Enter the email.
+
+   Preferred email:
+
+   ```text
+   <account-id>+@hegiw77632.cloud-ip.cc
+   ```
+
+   The ChatGPT email field may fail with `Browser Use virtual clipboard is not installed` when using `fill`, `type`, or DOM CUA `type`. If that happens, click the field and input characters with `tab.cua.keypress` one character at a time.
+
+   Character mapping for keypress fallback:
+
+   - `@`: `SHIFT` + `2`
+   - `+`: `SHIFT` + `=`
+   - `.`: `.`
+   - `-`: `-`
+   - letters and digits: the character itself
+
+3. Click `继续`.
+
+4. On `https://auth.openai.com/sso`, choose the `codex` SSO option.
+
+5. On the SAML SSO page, fill:
+
+   - `input#email`: `<account-id>+@hegiw77632.cloud-ip.cc`
+   - `input#userid`: `<account-id>`
+
+   Use the same keypress fallback if normal fill/type fails.
+
+6. Click `Sign In` directly.
+
+   Optional safety gate when needed:
+
+   ```text
+   表单已填好。点击 Sign In 会提交并可能创建/登录账号。
+   请回复“确认提交 <account-id>”，我再提交。
+   ```
+
+7. If `--confirm` is enabled, wait for that confirmation and then click `Sign In`.
+
+8. Verify the result:
+
+   - Success usually redirects to `https://chatgpt.com/`.
+   - A first-run job-role screen may appear with options like `工程`, `设计`, `产品管理`, `其他`.
+   - Ask the user which role to choose. If they choose `工程`, click `工程`.
+   - Dismiss optional onboarding prompts such as `稍后再说` or `跳过` unless they configure a preference the user should decide.
+   - Final success evidence: ChatGPT home is usable, the chat box is present, and the workspace shows `Alice Inc. Business`.
+
+## SAML Expiry Retry
+
+The SAML request URL can expire quickly while waiting for confirmation. If clicking `Sign In` returns:
+
+```text
+invalid SAML request
+```
+
+then:
+
+1. Return to `https://chatgpt.com/auth/login`.
+2. Re-enter the same email.
+3. Choose `codex` again to generate a fresh SAML request.
+4. Fill the same email and User ID.
+5. Submit immediately. If `--confirm` is enabled for that run, reuse the same confirmation for the retry.
+6. Verify success on ChatGPT.
+
+Do not reuse an old `SAMLRequest` or `RelayState` URL.
+
+## Completion Report
+
+Report:
+
+- Account id and email used.
+- Whether registration/login reached ChatGPT.
+- Whether onboarding choices were applied.
+- Any remaining prompt requiring the user, such as Cloudflare verification.
+
+Keep the goal active until the account is registered/logged in and usable, or until the same user-confirmation/CAPTCHA blocker recurs enough times to mark it blocked.

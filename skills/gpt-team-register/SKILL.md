@@ -7,6 +7,13 @@ description: Register ChatGPT Team/Business sub-accounts through the hegiw77632.
 
 Use this skill to help register ChatGPT Team/Business sub-accounts from `/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register`.
 
+This repository serves two purposes:
+
+- a runnable CLI script
+- a reusable Codex skill
+
+When using the skill, prefer calling the bundled script instead of re-implementing the browser flow inside the conversation.
+
 ## Fast Path Script
 
 Prefer the bundled script for repeat registrations:
@@ -14,6 +21,18 @@ Prefer the bundled script for repeat registrations:
 ```bash
 cd /Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
 ./register-team-account ikun0000002
+```
+
+If Chrome or Chromium is not in a standard location, pass it explicitly:
+
+```bash
+./register-team-account ikun0000002 --chrome-path /path/to/chrome
+```
+
+Or configure it with environment variables:
+
+```bash
+CHROME_PATH=/path/to/chrome ./register-team-account ikun0000002
 ```
 
 The script automates:
@@ -28,6 +47,13 @@ The script automates:
 - Selecting the default job role `工程`.
 - Dismissing optional onboarding prompts.
 
+The script is cross-platform friendly now:
+
+- it can use `node` from `PATH`
+- it can load Playwright from the current Node environment
+- it can auto-detect common Chrome paths
+- it can fall back to Playwright's default Chromium
+
 The script uses a persistent browser profile at:
 
 ```text
@@ -39,6 +65,16 @@ If Cloudflare/browser verification appears, complete the visible verification ma
 The script submits `Sign In` automatically by default for faster repeat registration. Pass `--confirm` only when you intentionally want a manual confirmation gate before submission.
 
 Use `--role <name>` to choose a different onboarding role. Use `--close` to close the script browser at the end.
+
+For runtime customization, prefer these inputs before editing files:
+
+- `NODE_BIN`
+- `NODE_MODULES`
+- `NODE_PATH`
+- `PLAYWRIGHT_PACKAGE_PATH`
+- `CHROME_PATH`
+- `GOOGLE_CHROME_BIN`
+- `CODEX_RUNTIME_NODE_DIR`
 
 ## Inputs
 

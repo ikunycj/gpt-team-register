@@ -1,24 +1,85 @@
 #!/usr/bin/env node
 import { createInterface } from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
+import { access, mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { mkdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, delimiter, resolve } from 'node:path';
+import { stdin as input, stdout as output, env, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { chromium } = require(
-  '/Users/yangchunjiang/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.js',
-);
+const { chromium } = loadPlaywright();
 
 const DEFAULT_DOMAIN = 'hegiw77632.cloud-ip.cc';
 const DEFAULT_SSO_NAME = 'codex';
 const DEFAULT_WORK_ROLE = '工程';
-const DEFAULT_CHROME =
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = resolve(SCRIPT_DIR, '..');
 const DEFAULT_PROFILE_DIR = resolve(ROOT_DIR, '.browser-profile');
+const DEFAULT_VIEWPORT = { width: 1280, height: 900 };
+
+function loadPlaywright() {
+  const candidates = [
+    env.PLAYWRIGHT_PACKAGE_PATH,
+    'playwright',
+  ].filter(Boolean);
+
+  if (env.NODE_PATH) {
+    for (const base of env.NODE_PATH.split(delimiter).filter(Boolean)) {
+      candidates.push(resolve(base, 'playwright'));
+      candidates.push(resolve(base, 'playwright/index.js'));
+    }
+  }
+
+  const runtimeDir = env.CODEX_RUNTIME_NODE_DIR;
+  if (runtimeDir) {
+    candidates.push(resolve(runtimeDir, 'node_modules/playwright'));
+    candidates.push(resolve(runtimeDir, 'node_modules/playwright/index.js'));
+  }
+
+  let lastError;
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(
+    `Unable to load Playwright. Set PLAYWRIGHT_PACKAGE_PATH, NODE_PATH, or install the "playwright" package. Last error: ${lastError?.message || 'unknown'}`,
+  );
+}
+
+async function pathExists(target) {
+  if (!target) return false;
+  try {
+    await access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveChromePath(explicitPath) {
+  if (explicitPath) return explicitPath;
+
+  const candidates = [
+    env.CHROME_PATH,
+    env.GOOGLE_CHROME_BIN,
+    platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '',
+    platform === 'linux' ? '/usr/bin/google-chrome' : '',
+    platform === 'linux' ? '/usr/bin/google-chrome-stable' : '',
+    platform === 'linux' ? '/snap/bin/chromium' : '',
+    platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '',
+    platform === 'win32' ? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe' : '',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) return candidate;
+  }
+
+  return '';
+}
 
 function parseArgs(argv) {
   const args = {
@@ -31,6 +92,7 @@ function parseArgs(argv) {
     persistent: true,
     profileDir: DEFAULT_PROFILE_DIR,
     retries: 2,
+    chromePath: env.CHROME_PATH || env.GOOGLE_CHROME_BIN || '',
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -45,6 +107,7 @@ function parseArgs(argv) {
     else if (arg === '--close') args.keepOpen = false;
     else if (arg === '--no-persistent') args.persistent = false;
     else if (arg === '--profile-dir') args.profileDir = argv[++i];
+    else if (arg === '--chrome-path') args.chromePath = argv[++i];
     else if (arg === '--retries') args.retries = Number(argv[++i]);
     else if (!args.id && !arg.startsWith('--')) args.id = arg;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -60,7 +123,7 @@ function parseArgs(argv) {
 
 async function clearAndFill(locator, text) {
   await locator.click();
-  await locator.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await locator.press(platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await locator.press('Backspace');
   await locator.fill(text);
 }
@@ -145,7 +208,7 @@ async function enterEmailAndContinue(page, email) {
     await clearAndFill(emailInput, email);
   } catch {
     await emailInput.click();
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.keyboard.press(platform === 'darwin' ? 'Meta+A' : 'Control+A');
     await page.keyboard.press('Backspace');
     await pressText(page, email);
   }
@@ -251,24 +314,25 @@ async function runOnce(page, args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const chromePath = await resolveChromePath(args.chromePath);
   console.log(`Registering Team account: ${args.id}`);
   console.log(`Email: ${args.email}`);
+  if (chromePath) console.log(`Browser: ${chromePath}`);
+  else console.log('Browser: Playwright default Chromium');
 
   await mkdir(args.profileDir, { recursive: true });
+  const launchOptions = {
+    headless: args.headless,
+    args: ['--no-sandbox'],
+    viewport: DEFAULT_VIEWPORT,
+  };
+  if (chromePath) launchOptions.executablePath = chromePath;
+
   const context = args.persistent
-    ? await chromium.launchPersistentContext(args.profileDir, {
-        headless: args.headless,
-        executablePath: DEFAULT_CHROME,
-        args: ['--no-sandbox'],
-        viewport: { width: 1280, height: 900 },
-      })
+    ? await chromium.launchPersistentContext(args.profileDir, launchOptions)
     : await chromium
-        .launch({
-          headless: args.headless,
-          executablePath: DEFAULT_CHROME,
-          args: ['--no-sandbox'],
-        })
-        .then((browser) => browser.newContext({ viewport: { width: 1280, height: 900 } }));
+        .launch(launchOptions)
+        .then((browser) => browser.newContext({ viewport: DEFAULT_VIEWPORT }));
   const page = context.pages()[0] || (await context.newPage());
 
   try {

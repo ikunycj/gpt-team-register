@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { dirname, delimiter, resolve } from 'node:path';
 import { stdin as input, stdout as output, env, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { saveChatgptSessionCacheFromContext } from './fetch-json-save.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = loadPlaywright();
@@ -90,6 +91,7 @@ function parseArgs(argv) {
     requireConfirm: false,
     keepOpen: true,
     persistent: true,
+    saveSession: true,
     profileDir: DEFAULT_PROFILE_DIR,
     retries: 2,
     chromePath: env.CHROME_PATH || env.GOOGLE_CHROME_BIN || '',
@@ -105,6 +107,8 @@ function parseArgs(argv) {
     else if (arg === '--headless') args.headless = true;
     else if (arg === '--confirm') args.requireConfirm = true;
     else if (arg === '--close') args.keepOpen = false;
+    else if (arg === '--no-save-session') args.saveSession = false;
+    else if (arg === '--session-output-dir') args.sessionOutputDir = argv[++i];
     else if (arg === '--no-persistent') args.persistent = false;
     else if (arg === '--profile-dir') args.profileDir = argv[++i];
     else if (arg === '--chrome-path') args.chromePath = argv[++i];
@@ -355,6 +359,14 @@ async function main() {
     }
 
     console.log(`Success: ${args.id} is logged into ChatGPT Alice Inc. Business.`);
+    if (args.saveSession) {
+      const saved = await saveChatgptSessionCacheFromContext(context, {
+        email: args.email,
+        outputDir: args.sessionOutputDir,
+      });
+      console.log(`Saved ChatGPT session cache to ${saved.path}`);
+      console.log(`Session cookies: ${saved.cookies}`);
+    }
   } finally {
     if (!args.keepOpen) await context.close();
     else console.log('Browser left open for inspection. Use --close to close automatically.');

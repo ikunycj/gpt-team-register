@@ -1,4 +1,6 @@
 .browser-profile/
+chatgpt_sessions/
+gpt-rt/
 
 node_modules/
 package-lock.json

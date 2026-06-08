@@ -46,6 +46,7 @@ The script automates:
 - Retrying fresh SAML requests after `invalid SAML request`.
 - Selecting the default job role `工程`.
 - Dismissing optional onboarding prompts.
+- Saving a ChatGPT session cache with `access_token` and `session_token`.
 
 The script is cross-platform friendly now:
 
@@ -65,6 +66,14 @@ If Cloudflare/browser verification appears, complete the visible verification ma
 The script submits `Sign In` automatically by default for faster repeat registration. Pass `--confirm` only when you intentionally want a manual confirmation gate before submission.
 
 Use `--role <name>` to choose a different onboarding role. Use `--close` to close the script browser at the end.
+
+By default, successful runs save:
+
+```text
+/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/chatgpt_sessions/<safe-email>.json
+```
+
+This file contains secrets. Never stage, commit, paste, or print its token fields. Use `--no-save-session` only when the user explicitly does not want a local session cache.
 
 For runtime customization, prefer these inputs before editing files:
 
@@ -91,6 +100,7 @@ If the user only provides an id, derive the email. If the user provides both, pr
 - The default automation path submits the SSO `Sign In` button automatically.
 - Pass `--confirm` when you want the script to stop and require an exact confirmation string before submission.
 - Selecting onboarding preferences such as job role can be done automatically when the requested role is already known.
+- Session caches and browser profiles contain secrets. Do not upload `.browser-profile/`, `chatgpt_sessions/`, `gpt-rt/`, or token JSON files.
 
 ## Browser Workflow
 
@@ -149,7 +159,69 @@ If the user only provides an id, derive the email. If the user provides both, pr
    - A first-run job-role screen may appear with options like `工程`, `设计`, `产品管理`, `其他`.
    - Ask the user which role to choose. If they choose `工程`, click `工程`.
    - Dismiss optional onboarding prompts such as `稍后再说` or `跳过` unless they configure a preference the user should decide.
-   - Final success evidence: ChatGPT home is usable, the chat box is present, and the workspace shows `Alice Inc. Business`.
+   - Final success evidence: ChatGPT home is usable, the chat box is present, and the workspace shows the Business workspace.
+
+9. If using the script path, verify session cache creation:
+
+   ```bash
+   node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('chatgpt_sessions/<safe-email>.json','utf8')); console.log({email:d.email, hasAccessToken:!!d.access_token, hasSessionToken:!!d.session_token, hasRawSession:!!d.raw_session})"
+   ```
+
+   Never print the actual token values.
+
+## Codex In-App Browser Flow
+
+Use this when the user explicitly wants Codex's in-app browser, when the script Chrome profile is locked, or when browser verification must be handled visually inside Codex.
+
+1. Use the Browser skill and open `https://chatgpt.com/`.
+2. If another account is logged in, open the profile menu, choose `退出登录`, confirm, then choose `登录至另一个帐户`.
+3. Enter `<account-id>+@hegiw77632.cloud-ip.cc`.
+4. Choose the `codex` SSO option.
+5. Fill the SAML form:
+
+   - `email`: `<account-id>+@hegiw77632.cloud-ip.cc`
+   - `userid`: `<account-id>`
+
+   If DOM typing fails with the virtual clipboard error, use `tab.cua.keypress` character-by-character:
+
+   - `@`: `SHIFT` + `2`
+   - `+`: `SHIFT` + `=`
+   - `.`: `.`
+   - `-`: `-`
+
+6. Submit `Sign In`.
+7. Complete onboarding:
+
+   - Choose `工程` unless the user requested another role.
+   - Click `稍后再说` for optional Codex/app prompts.
+   - Click `跳过` for optional work app selection.
+
+8. Verify:
+
+   - URL is `https://chatgpt.com/`
+   - Business workspace is visible
+   - chat box `与 ChatGPT 聊天` is visible
+
+9. Open `https://chatgpt.com/api/auth/session` in the same in-app browser tab and confirm the JSON has `accessToken` and `sessionToken`. Do not print either token.
+
+10. Save the session cache by importing the local saver in Node REPL:
+
+   ```js
+   const authSession = await tab.playwright.evaluate(() => JSON.parse(document.body?.innerText || "{}"));
+   const mod = await import("/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/scripts/fetch-json-save.mjs");
+   await mod.saveChatgptSessionCacheFromAuthSession(authSession, {
+     email: "<account-id>+@hegiw77632.cloud-ip.cc",
+   });
+   ```
+
+   Then return to `https://chatgpt.com/`.
+
+11. Verify the saved file without revealing tokens:
+
+   ```bash
+   cd /Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
+   node -e "const fs=require('fs'); const p='chatgpt_sessions/<safe-email>.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); console.log(JSON.stringify({email:d.email, hasAccessToken:!!d.access_token, hasSessionToken:!!d.session_token, hasRawSession:!!d.raw_session}, null, 2))"
+   ```
 
 ## SAML Expiry Retry
 
@@ -177,6 +249,7 @@ Report:
 - Account id and email used.
 - Whether registration/login reached ChatGPT.
 - Whether onboarding choices were applied.
+- Whether session cache was saved and structurally verified.
 - Any remaining prompt requiring the user, such as Cloudflare verification.
 
-Keep the goal active until the account is registered/logged in and usable, or until the same user-confirmation/CAPTCHA blocker recurs enough times to mark it blocked.
+Keep the goal active until the account is registered/logged in, usable, and the session cache is saved or the user explicitly says not to save it.

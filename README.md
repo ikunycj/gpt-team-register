@@ -307,7 +307,7 @@ https://chatgpt.com/api/auth/session
     └── gpt-team-register/
         └── SKILL.md
 ```
+## 友情链接
+https://linux.do/
 
-## License
 
-当前仓库默认为私有 / 内部使用。如需公开分发，请自行补充许可证。

@@ -194,8 +194,8 @@ https://chatgpt.com/api/auth/session
 
 仓库中已经包含 Codex skill 定义：
 
-- [skills/gpt-team-registration/SKILL.md](/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/skills/gpt-team-registration/SKILL.md:1)
 - [skills/gpt-team-register/SKILL.md](/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/skills/gpt-team-register/SKILL.md:1)
+- [skills/gpt-team-register/config.json](/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/skills/gpt-team-register/config.json:1)
 
 适合的使用场景：
 
@@ -203,7 +203,7 @@ https://chatgpt.com/api/auth/session
 - 在已有流程失败后让 Codex 自动重试
 - 将这套注册流程纳入你自己的技能库或自动化工作流
 
-如果你把这个仓库作为 skill 使用，推荐让 skill 继续调用仓库根目录下的 `./register-team-account`，而不是复制脚本逻辑。这样后续脚本优化后，skill 会自动继承最新行为。
+如果你把这个仓库作为 skill 使用，注册流程会强制使用 Codex 内置浏览器；脚本保留为独立命令行工具和 session 保存辅助工具。
 
 ## 参数说明
 
@@ -290,7 +290,6 @@ https://chatgpt.com/api/auth/session
 - Cloudflare、CAPTCHA 或额外安全验证仍然需要手动完成
 - 当前脚本针对的是特定 Team / Business 工作区和 SSO 按钮名称
 - 这不是一个通用的 OpenAI 账号注册库
-- 如果你把它当 skill 用，建议 skill 只负责调用脚本，不要复制一份独立实现
 - 不要提交 `.browser-profile/`、`chatgpt_sessions/`、`gpt-rt/` 或任何包含 token 的 JSON 文件
 
 ## 仓库结构
@@ -305,9 +304,14 @@ https://chatgpt.com/api/auth/session
 │   └── fetch-json-save.mjs
 └── skills/
     └── gpt-team-register/
+        ├── config.json
         └── SKILL.md
 ```
-## 友情链接
-https://linux.do/
 
+## 开源协议
 
+本项目采用 Apache License 2.0。详见仓库根目录 `LICENSE`。
+
+## 致谢
+
+感谢 [Linux.do](https://linux.do) 社区成员的讨论、反馈、建议与支持。

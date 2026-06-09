@@ -1,231 +1,139 @@
 ---
 name: gpt-team-registration
-description: Register ChatGPT Team/Business sub-accounts through the hegiw77632.cloud-ip.cc email pattern and codex SAML SSO. Use when the user asks to register another Team child account, retry a gpt-team registration, or create an account like ikun0000001 under the Team SSO flow.
+description: Register ChatGPT Team/Business sub-accounts with the configured email suffix and codex SAML SSO. Use when the user asks to register another Team child account, retry a gpt-team registration, or create an account like ikun0000001/testikun0001 under the Team SSO flow. This skill must use the Codex in-app Browser, never external Chrome or the CLI browser automation script.
 ---
 
 # GPT Team Registration
 
-Use this skill to help register ChatGPT Team/Business sub-accounts from `/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register`.
-
-This repository serves two purposes:
-
-- a runnable CLI script
-- a reusable Codex skill
-
-When using the skill, prefer calling the bundled script instead of re-implementing the browser flow inside the conversation.
-
-## Fast Path Script
-
-Prefer the bundled script for repeat registrations:
-
-```bash
-cd /Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
-./register-team-account ikun0000002
-```
-
-If Chrome or Chromium is not in a standard location, pass it explicitly:
-
-```bash
-./register-team-account ikun0000002 --chrome-path /path/to/chrome
-```
-
-Or configure it with environment variables:
-
-```bash
-CHROME_PATH=/path/to/chrome ./register-team-account ikun0000002
-```
-
-The script automates:
-
-- Opening ChatGPT.
-- Logging out an existing ChatGPT account if necessary.
-- Entering the derived email.
-- Choosing `codex` SSO.
-- Filling the SAML form.
-- Submitting `Sign In` automatically.
-- Retrying fresh SAML requests after `invalid SAML request`.
-- Selecting the default job role `工程`.
-- Dismissing optional onboarding prompts.
-- Saving a ChatGPT session cache with `access_token` and `session_token`.
-
-The script is cross-platform friendly now:
-
-- it can use `node` from `PATH`
-- it can load Playwright from the current Node environment
-- it can auto-detect common Chrome paths
-- it can fall back to Playwright's default Chromium
-
-The script uses a persistent browser profile at:
+Use this skill to register ChatGPT Team/Business sub-accounts from:
 
 ```text
-/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/.browser-profile
+/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
 ```
 
-If Cloudflare/browser verification appears, complete the visible verification manually in the opened browser, then press Enter in the terminal. The profile should remember that verification for later runs. Use `--no-persistent` only when intentionally testing a clean browser.
+## Mandatory Browser Rule
 
-The script submits `Sign In` automatically by default for faster repeat registration. Pass `--confirm` only when you intentionally want a manual confirmation gate before submission.
+Always use the Codex in-app Browser for the registration flow.
 
-Use `--role <name>` to choose a different onboarding role. Use `--close` to close the script browser at the end.
+Do not use:
 
-By default, successful runs save:
+- external Chrome
+- Playwright launched from the shell
+- `./register-team-account`
+- `.browser-profile`
+
+The only shell/Node use allowed during registration is read-only verification or saving the session cache after the in-app browser has successfully logged in.
+
+## Configuration
+
+Before deriving an email, read:
 
 ```text
-/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/chatgpt_sessions/<safe-email>.json
+/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/skills/gpt-team-register/config.json
 ```
 
-This file contains secrets. Never stage, commit, paste, or print its token fields. Use `--no-save-session` only when the user explicitly does not want a local session cache.
+Current configurable value:
 
-For runtime customization, prefer these inputs before editing files:
+- `email_suffix`: suffix appended to the account id. Default: `+@hegiw77632.cloud-ip.cc`
 
-- `NODE_BIN`
-- `NODE_MODULES`
-- `NODE_PATH`
-- `PLAYWRIGHT_PACKAGE_PATH`
-- `CHROME_PATH`
-- `GOOGLE_CHROME_BIN`
-- `CODEX_RUNTIME_NODE_DIR`
+Derive the email as:
 
-## Inputs
+```text
+<account-id><email_suffix>
+```
 
-- Account id: for example `ikun0000001`.
-- Email: derive as `<account-id>+@hegiw77632.cloud-ip.cc`.
-- SSO User ID: exactly `<account-id>`.
+For example, with the default config:
 
-If the user only provides an id, derive the email. If the user provides both, prefer the explicit values and mention them before submitting.
+```text
+testikun0001 -> testikun0001+@hegiw77632.cloud-ip.cc
+```
 
-## Safety Boundaries
+If the user explicitly provides an email, use the explicit email and mention it before submitting. The SSO User ID is always the account id unless the user explicitly provides another User ID.
 
-- Use the in-app Browser skill for ChatGPT and SSO pages.
-- Do not bypass Cloudflare, CAPTCHA, browser safety interstitials, or paywalls. Ask the user to complete those manually if they appear.
-- The default automation path submits the SSO `Sign In` button automatically.
-- Pass `--confirm` when you want the script to stop and require an exact confirmation string before submission.
-- Selecting onboarding preferences such as job role can be done automatically when the requested role is already known.
-- Session caches and browser profiles contain secrets. Do not upload `.browser-profile/`, `chatgpt_sessions/`, `gpt-rt/`, or token JSON files.
+## In-App Browser Flow
 
-## Browser Workflow
+1. Use the Browser skill and connect to the Codex in-app Browser.
+2. Show the browser when Cloudflare, browser verification, or manual user action may be needed.
+3. Open `https://chatgpt.com/auth/login`.
+4. If another ChatGPT account is logged in, log out first, then return to the email login form.
+5. Enter the derived email.
+6. Click `继续`.
+7. On `https://auth.openai.com/sso`, choose `codex`.
+8. On the SAML SSO page, fill:
 
-1. Open `https://chatgpt.com/auth/login`.
+   - Email: derived email
+   - User ID: account id
 
-   If ChatGPT redirects to an already logged-in workspace, log out first:
+9. Submit `Sign In` immediately.
+10. Complete onboarding:
 
-   - Open the profile menu.
-   - Choose `退出登录`.
-   - Confirm the logout dialog.
-   - If an account chooser appears, choose `创建帐户` or `登录至另一个帐户` to reach the email form.
+   - choose `工程` unless the user requested another role
+   - dismiss optional prompts with `稍后再说` or `跳过`
 
-2. Enter the email.
-
-   Preferred email:
-
-   ```text
-   <account-id>+@hegiw77632.cloud-ip.cc
-   ```
-
-   The ChatGPT email field may fail with `Browser Use virtual clipboard is not installed` when using `fill`, `type`, or DOM CUA `type`. If that happens, click the field and input characters with `tab.cua.keypress` one character at a time.
-
-   Character mapping for keypress fallback:
-
-   - `@`: `SHIFT` + `2`
-   - `+`: `SHIFT` + `=`
-   - `.`: `.`
-   - `-`: `-`
-   - letters and digits: the character itself
-
-3. Click `继续`.
-
-4. On `https://auth.openai.com/sso`, choose the `codex` SSO option.
-
-5. On the SAML SSO page, fill:
-
-   - `input#email`: `<account-id>+@hegiw77632.cloud-ip.cc`
-   - `input#userid`: `<account-id>`
-
-   Use the same keypress fallback if normal fill/type fails.
-
-6. Click `Sign In` directly.
-
-   Optional safety gate when needed:
-
-   ```text
-   表单已填好。点击 Sign In 会提交并可能创建/登录账号。
-   请回复“确认提交 <account-id>”，我再提交。
-   ```
-
-7. If `--confirm` is enabled, wait for that confirmation and then click `Sign In`.
-
-8. Verify the result:
-
-   - Success usually redirects to `https://chatgpt.com/`.
-   - A first-run job-role screen may appear with options like `工程`, `设计`, `产品管理`, `其他`.
-   - Ask the user which role to choose. If they choose `工程`, click `工程`.
-   - Dismiss optional onboarding prompts such as `稍后再说` or `跳过` unless they configure a preference the user should decide.
-   - Final success evidence: ChatGPT home is usable, the chat box is present, and the workspace shows the Business workspace.
-
-9. If using the script path, verify session cache creation:
-
-   ```bash
-   node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('chatgpt_sessions/<safe-email>.json','utf8')); console.log({email:d.email, hasAccessToken:!!d.access_token, hasSessionToken:!!d.session_token, hasRawSession:!!d.raw_session})"
-   ```
-
-   Never print the actual token values.
-
-## Codex In-App Browser Flow
-
-Use this when the user explicitly wants Codex's in-app browser, when the script Chrome profile is locked, or when browser verification must be handled visually inside Codex.
-
-1. Use the Browser skill and open `https://chatgpt.com/`.
-2. If another account is logged in, open the profile menu, choose `退出登录`, confirm, then choose `登录至另一个帐户`.
-3. Enter `<account-id>+@hegiw77632.cloud-ip.cc`.
-4. Choose the `codex` SSO option.
-5. Fill the SAML form:
-
-   - `email`: `<account-id>+@hegiw77632.cloud-ip.cc`
-   - `userid`: `<account-id>`
-
-   If DOM typing fails with the virtual clipboard error, use `tab.cua.keypress` character-by-character:
-
-   - `@`: `SHIFT` + `2`
-   - `+`: `SHIFT` + `=`
-   - `.`: `.`
-   - `-`: `-`
-
-6. Submit `Sign In`.
-7. Complete onboarding:
-
-   - Choose `工程` unless the user requested another role.
-   - Click `稍后再说` for optional Codex/app prompts.
-   - Click `跳过` for optional work app selection.
-
-8. Verify:
+11. Verify ChatGPT is usable:
 
    - URL is `https://chatgpt.com/`
    - Business workspace is visible
-   - chat box `与 ChatGPT 聊天` is visible
+   - chat box is visible
 
-9. Open `https://chatgpt.com/api/auth/session` in the same in-app browser tab and confirm the JSON has `accessToken` and `sessionToken`. Do not print either token.
+## Typing Fallback
 
-10. Save the session cache by importing the local saver in Node REPL:
+The in-app Browser may fail with:
 
-   ```js
-   const authSession = await tab.playwright.evaluate(() => JSON.parse(document.body?.innerText || "{}"));
-   const mod = await import("/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/scripts/fetch-json-save.mjs");
-   await mod.saveChatgptSessionCacheFromAuthSession(authSession, {
-     email: "<account-id>+@hegiw77632.cloud-ip.cc",
-   });
-   ```
+```text
+Browser Use virtual clipboard is not installed
+```
 
-   Then return to `https://chatgpt.com/`.
+When that happens, click the field and input characters with `tab.cua.keypress` one character at a time:
 
-11. Verify the saved file without revealing tokens:
+- `@`: `SHIFT` + `2`
+- `+`: `SHIFT` + `=`
+- `.`: `.`
+- `-`: `-`
+- letters and digits: the character itself
 
-   ```bash
-   cd /Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
-   node -e "const fs=require('fs'); const p='chatgpt_sessions/<safe-email>.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); console.log(JSON.stringify({email:d.email, hasAccessToken:!!d.access_token, hasSessionToken:!!d.session_token, hasRawSession:!!d.raw_session}, null, 2))"
-   ```
+Use this fallback for both the ChatGPT email field and the SAML form fields.
+
+## Safety Boundaries
+
+- Do not bypass Cloudflare, CAPTCHA, browser safety interstitials, or paywalls.
+- If Cloudflare or browser verification appears, ask the user to complete it in the visible in-app Browser, then continue.
+- If the in-app Browser policy blocks a URL such as `external.auth.openai.com`, stop and ask the user to manually continue until the next reachable page, usually the SAML form or ChatGPT home.
+- Do not use external Chrome as a fallback.
+- Session cache files contain secrets. Do not print token values, stage token files, or paste token JSON.
+
+## Saving The Session Cache
+
+After successful login, open this URL in the same in-app Browser tab:
+
+```text
+https://chatgpt.com/api/auth/session
+```
+
+Confirm the JSON has `accessToken` and `sessionToken`. Do not print either token.
+
+Save the session cache with the local saver:
+
+```js
+const authSession = await tab.playwright.evaluate(() => JSON.parse(document.body?.innerText || "{}"));
+const mod = await import("/Users/yangchunjiang/PersonalCode/closeai/gpt-team-register/scripts/fetch-json-save.mjs");
+await mod.saveChatgptSessionCacheFromAuthSession(authSession, {
+  email: "<derived-email>",
+});
+```
+
+Then return to `https://chatgpt.com/`.
+
+Verify the saved file without revealing tokens:
+
+```bash
+cd /Users/yangchunjiang/PersonalCode/closeai/gpt-team-register
+node -e "const fs=require('fs'); const p='chatgpt_sessions/<safe-email>.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); console.log(JSON.stringify({email:d.email, hasAccessToken:!!d.access_token, hasSessionToken:!!d.session_token, hasRawSession:!!d.raw_session}, null, 2))"
+```
 
 ## SAML Expiry Retry
 
-The SAML request URL can expire quickly while waiting for confirmation. If clicking `Sign In` returns:
+The SAML request URL can expire quickly. If `Sign In` returns:
 
 ```text
 invalid SAML request
@@ -234,11 +142,10 @@ invalid SAML request
 then:
 
 1. Return to `https://chatgpt.com/auth/login`.
-2. Re-enter the same email.
+2. Re-enter the same derived email.
 3. Choose `codex` again to generate a fresh SAML request.
 4. Fill the same email and User ID.
-5. Submit immediately. If `--confirm` is enabled for that run, reuse the same confirmation for the retry.
-6. Verify success on ChatGPT.
+5. Submit immediately.
 
 Do not reuse an old `SAMLRequest` or `RelayState` URL.
 
@@ -246,10 +153,10 @@ Do not reuse an old `SAMLRequest` or `RelayState` URL.
 
 Report:
 
-- Account id and email used.
-- Whether registration/login reached ChatGPT.
-- Whether onboarding choices were applied.
-- Whether session cache was saved and structurally verified.
-- Any remaining prompt requiring the user, such as Cloudflare verification.
+- account id and email used
+- whether registration/login reached ChatGPT
+- whether onboarding choices were applied
+- whether session cache was saved and structurally verified
+- any remaining user action required
 
-Keep the goal active until the account is registered/logged in, usable, and the session cache is saved or the user explicitly says not to save it.
+Keep working until the account is registered/logged in, usable, and the session cache is saved, unless the user explicitly says not to save it.
